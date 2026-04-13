@@ -1,0 +1,29 @@
+/* Super Admin Dashboard — extends admin_dashboard.css theme */
+@import url('admin_dashboard.css');
+
+/* Super Admin badge override */
+.nav-brand-badge.super {
+    background: rgba(124,58,237,0.15);
+    border-color: rgba(124,58,237,0.25);
+    color: #C4B5FD;
+}
+
+/* Status badges in logs table */
+.status-success {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: rgba(16,185,129,0.12);
+    color: #6EE7B7;
+    border: 1px solid rgba(16,185,129,0.2);
+    padding: 0.2rem 0.6rem;
+    border-radius: 20px;
+    font-size: 0.72rem; font-weight: 700;
+}
+.status-failed {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: rgba(239,68,68,0.12);
+    color: #FCA5A5;
+    border: 1px solid rgba(239,68,68,0.2);
+    padding: 0.2rem 0.6rem;
+    border-radius: 20px;
+    font-size: 0.72rem; font-weight: 700;
+}

@@ -1,0 +1,315 @@
+# Proactive Equipment Care
+
+A predictive maintenance system for industrial motor equipment. It uses a stacked LSTM neural network to predict machine failure probability from past static sensor data, served through a Flask REST API with a role-based web dashboard.
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| ML Model | TensorFlow / Keras (LSTM) |
+| Backend | Python, Flask, Flask-CORS |
+| Auth | Supabase Auth + OTP via Gmail SMTP |
+| Database | Supabase (PostgreSQL) |
+| Frontend | HTML, CSS, Vanilla JavaScript, Chart.js |
+| Data | pandas, NumPy, scikit-learn |
+
+---
+
+## Project Structure
+
+```
+AI Codebase/
+├── backend/
+│   ├── app.py                  # Flask API server (main entry point)
+│   ├── auth_service.py         # Two-tier auth, OTP generation & email
+│   ├── supabase_client.py      # Supabase client initialisation
+│   ├── file_validator.py       # CSV upload validation
+│   ├── download_raw_data.py    # Downloads raw sensor CSV from Supabase storage
+│   └── predict_and_export.py   # Batch prediction script (offline use)
+├── frontend/
+│   ├── landing.html/js/css             # Public landing page
+│   ├── login.html/js/css               # Login page with OTP modal
+│   ├── admin_dashboard.html/js/css     # Dashboard (admin role)
+│   ├── super_admin_dashboard.html/js/css # Dashboard (super admin role)
+│   ├── analyse.html/js/css             # Prediction charts & analysis
+│   ├── manage_users.html/js/css        # User management (super admin only)
+│   ├── profile.html/js/css             # Shared profile base
+│   ├── admin_profile.html/js/css       # Admin profile page
+│   ├── super_admin_profile.html/js/css # Super admin profile page
+│   ├── dashboard_core.js               # Shared upload, preview, predict & audit logic
+│   ├── dark_mode.js/css                # Dark mode toggle (shared)
+│   └── default_avatar.svg              # Fallback profile avatar
+├── notebooks/
+│   ├── 01_data_loading.ipynb       # Load & merge raw CSVs
+│   ├── 02_data_preprocessing.ipynb # Clean & StandardScaler normalisation
+│   ├── 03_feature_selection.ipynb  # Select 5 sensor features + target
+│   ├── 04_sequence_builder.ipynb   # Build (9224, 30, 5) LSTM sequences
+│   └── 05_lstm_model.ipynb         # Train, evaluate & save LSTM model
+├── data/
+│   ├── raw/                    # Raw sensor CSVs (downloaded via script)
+│   ├── processed/              # Normalised CSV + .npy sequence arrays
+│   └── profiles.json           # User avatar data (local store)
+├── models/
+│   └── motor_lstm_model.h5     # Trained LSTM model
+├── dashboard/
+│   └── motor_failure_predictions.csv  # Batch prediction output
+├── docs/                       # Project documentation & reports
+├── .env                        # Environment variables (see below)
+└── requirements.txt
+```
+
+---
+
+## Model Architecture
+
+The LSTM model takes sequences of 30 timesteps × 5 sensor features and outputs a failure probability (0–1) via sigmoid activation.
+
+```
+Input: (batch, 30, 5)
+  → LSTM(64, return_sequences=True)
+  → Dropout(0.2)
+  → LSTM(32)
+  → Dropout(0.2)
+  → Dense(16, relu)
+  → Dense(1, sigmoid)
+
+Total params: 30,881
+Optimizer: Adam | Loss: Binary Crossentropy
+```
+
+**Input features:**
+- Air temperature [K]
+- Process temperature [K]
+- Rotational speed [rpm]
+- Torque [Nm]
+- Tool wear [min]
+
+---
+
+## Authentication Flow
+
+1. User submits email + password → Flask `/login`
+2. Backend performs two-tier auth:
+   - **Tier 1:** Supabase Auth (`sign_in_with_password`)
+   - **Tier 2 fallback:** Direct DB bcrypt password check (for users who changed their password via the app)
+3. On success, a 6-digit OTP is generated and emailed via Gmail SMTP (expires in 2 minutes)
+4. User submits OTP → Flask `/verify-otp` → role-based redirect
+
+**Roles:** `super_admin` → `admin`
+
+---
+
+## User Roles & Access
+
+| Feature | Admin | Super Admin |
+|---|:---:|:---:|
+| Upload CSV & view predictions | ✅ | ✅ |
+| Analyse charts | ✅ | ✅ |
+| Download predictions CSV | ✅ | ✅ |
+| Change own password (OTP-verified) | ✅ | ✅ |
+| Manage users (add/edit/delete) | ❌ | ✅ |
+| View all registered users | ❌ | ✅ |
+| View prediction audit logs | ❌ | ✅ |
+| View login logs | ❌ | ✅ |
+| Export audit & login logs as CSV | ❌ | ✅ |
+
+---
+
+## API Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/login` | Step 1 auth — validates credentials, sends OTP |
+| `POST` | `/verify-otp` | Step 2 auth — verifies OTP, returns role |
+| `POST` | `/api/logout` | Logout |
+| `POST` | `/predict` | Run LSTM prediction on uploaded CSV |
+| `GET` | `/api/users` | List all users (super admin) |
+| `POST` | `/api/users` | Create new user (super admin) |
+| `PUT` | `/api/users/<id>` | Update user (super admin) |
+| `DELETE` | `/api/users/<id>` | Delete user (super admin) |
+| `GET` | `/api/profile` | Get user profile + last login |
+| `POST` | `/api/profile/avatar` | Update profile avatar |
+| `POST` | `/api/validate-csv` | Validate uploaded CSV format |
+| `POST` | `/api/change-password/request-otp` | Send OTP to verify password change |
+| `POST` | `/api/change-password/verify` | Verify OTP and update password |
+| `POST` | `/api/audit-logs` | Log a prediction run (user, CSV name, row count) |
+| `GET` | `/api/audit-logs` | Retrieve all prediction audit logs (super admin) |
+| `GET` | `/api/login-logs` | Retrieve all login logs (super admin) |
+| `POST` | `/api/predict-single` | Run prediction on a single set of sensor readings |
+
+The `/predict` endpoint accepts a CSV file and returns JSON predictions including `failure_probability`, sensor readings, `timestamp`, and `motor_id`. Pass `?download=true` to receive a CSV file instead.
+
+---
+
+## Audit Trail
+
+Every time a prediction is run (via Analyse or Download Predictions), the system automatically logs:
+
+- **Who** ran it — the logged-in user's email
+- **When** — UTC timestamp of the run
+- **What data** — the uploaded CSV filename and row count
+
+These logs are stored in the `prediction_audit_logs` table and are accessible only to Super Admins via the **Audit Logs** tab on the Super Admin Dashboard. Logs can be exported as a CSV file for compliance or reporting purposes.
+
+Login activity (successful and failed attempts) is similarly viewable and exportable from the **Login Logs** tab.
+
+---
+
+## Supabase Tables
+
+```sql
+-- Login activity log
+create table login_logs (
+  id uuid default gen_random_uuid() primary key,
+  user_email text,
+  user_id uuid,
+  status text,
+  ip_address text,
+  created_at timestamp with time zone default now()
+);
+
+-- User accounts
+create table users_database (
+  id uuid default gen_random_uuid() primary key,
+  name text,
+  email text unique,
+  password text,
+  "Role" text,
+  password_updated boolean default false,
+  created_at timestamp with time zone default now()
+);
+
+-- OTP store (login & password change)
+create table otp_store (
+  email text primary key,
+  otp text,
+  role text,
+  agenda text,
+  expires_at timestamp with time zone
+);
+
+-- Prediction audit log
+create table prediction_audit_logs (
+  id uuid default gen_random_uuid() primary key,
+  user_email text not null,
+  csv_name text not null,
+  row_count integer default 0,
+  ran_at timestamp with time zone default now()
+);
+```
+
+---
+
+## Setup
+
+### 1. Install dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### 2. Configure `.env`
+
+Create a `.env` file in the project root with the following keys:
+
+```env
+# Supabase
+SUPABASE_URL=<your_supabase_url>
+SUPABASE_ANON_KEY=<your_anon_key>
+SUPABASE_SERVICE_KEY=<your_service_role_key>
+
+# Database
+SUPABASE_DATABASE_URL=<your_postgres_connection_string>
+SUPABASE_DATABASE_USER=<db_user>
+SUPABASE_DATABASE_PASSWORD=<db_password>
+SUPABASE_DATABASE_NAME=postgres
+SUPABASE_DATABASE_PORT=6543
+SUPABASE_TABLE_NAME=login_logs
+SUPABASE_USER_TABLE_NAME=users_database
+AUDIT_LOG_TABLE_NAME=prediction_audit_logs
+
+# Storage
+STORAGE_BUCKET_NAME=motor-raw-data
+
+# Flask
+FLASK_DEBUG=True
+FLASK_PORT=5000
+
+# Raw data download (signed URL from Supabase Storage)
+DOWNLOAD_RAW_DATA_URL=<your_signed_url>
+
+# Gmail SMTP (for OTP emails)
+MAIL_USERNAME=<your_gmail_address>
+MAIL_PASSWORD=<your_gmail_app_password>
+```
+
+> All file paths (model, data, output) are resolved dynamically using `os.path` relative to the project root — no path configuration needed.
+
+### 3. Create Supabase tables
+
+Run the SQL from the [Supabase Tables](#supabase-tables) section above in your Supabase SQL editor.
+
+### 4. Download raw data
+
+```bash
+python backend/download_raw_data.py
+```
+
+### 5. Run the ML pipeline (one-time)
+
+Run the notebooks in order from the `notebooks/` directory:
+
+```
+01_data_loading.ipynb       → merges raw CSVs
+02_data_preprocessing.ipynb → cleans & normalises sensor data
+03_feature_selection.ipynb  → selects 5 features + target
+04_sequence_builder.ipynb   → builds sequences: X(9224,30,5), y(9224,)
+05_lstm_model.ipynb         → trains, saves motor_lstm_model.h5
+```
+
+### 6. Start the server
+
+```bash
+cd backend
+python app.py
+```
+
+The server starts at `http://localhost:5000`. Open `http://localhost:5000` in your browser to access the login page.
+
+---
+
+## Running Predictions
+
+**Via the web dashboard (recommended):**
+1. Log in and navigate to the Dashboard
+2. Upload a sensor CSV file with the required columns
+3. Click "Analyse" to view interactive charts
+4. Click "Download Predictions" to export results as CSV
+
+**Via batch script (offline):**
+```bash
+python backend/predict_and_export.py
+```
+Output is saved to `dashboard/motor_failure_predictions.csv`.
+
+---
+
+## Required CSV Columns
+
+When uploading sensor data for prediction, the CSV must contain these columns:
+
+```
+Air temperature [K]
+Process temperature [K]
+Rotational speed [rpm]
+Torque [Nm]
+Tool wear [min]
+```
+
+Optional columns used for output enrichment: `Timestamp`, `Product ID`
+
+Minimum rows required: **30** (one full sequence)
+
+> The `/predict` endpoint performs flexible column name matching — common variants such as `air_temperature`, `AirTemperature`, and `Rotational speed` are automatically recognised and mapped to the standard names.

@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile - Proactive Active Care Equipment</title>
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome for Premium Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- External CSS -->
+    <link rel="stylesheet" href="profile.css">
+    <link rel="stylesheet" href="dark_mode.css">
+    <script src="config.js"></script>
+</head>
+<body>
+    <!-- Top Navbar Consistent with Dashboard -->
+    <nav class="navbar">
+        <div class="logo">Proactive Active Care Equipment</div>
+        <div class="nav-links">
+            <button class="nav-btn analyse-btn" onclick="window.location.href='admin_dashboard.html'"><i class="fa-solid fa-gauge-high"></i> Dashboard</button>
+            <button class="nav-btn analyse-btn" onclick="goToAnalyse()"><i class="fa-solid fa-chart-line"></i> Analyse</button>
+            <button class="nav-btn dark-mode-btn"><i class="fa-solid fa-moon"></i></button>
+            <div class="profile-dropdown">
+                <button class="nav-btn profile-icon-btn">
+                    <img src="default_avatar.svg" alt="Profile" class="profile-avatar" id="nav-profile-img">
+                </button>
+                <div class="dropdown-menu">
+                    <button class="dropdown-item" onclick="window.location.href='profile.html'"><i class="fa-solid fa-user"></i> Profile</button>
+                    <button class="dropdown-item logout-item" onclick="showLogoutPopup()"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Profile Content -->
+    <main class="profile-content">
+        <div class="profile-card">
+            <div class="profile-header">
+                <h2>User Profile</h2>
+                <div class="divider"></div>
+            </div>
+            
+            <div class="profile-body">
+                <div class="profile-image-section">
+                    <div class="image-wrapper">
+                        <img src="default_avatar.svg" alt="User Profile" class="main-profile-img" id="main-profile-img">
+                        <label for="profile-upload" class="upload-overlay">
+                            <i class="fa-solid fa-camera"></i>
+                            <span>Change</span>
+                        </label>
+                        <input type="file" id="profile-upload" accept="image/*" class="hidden-input">
+                    </div>
+                </div>
+
+                <div class="profile-details">
+                    <div class="detail-item">
+                        <div class="detail-icon"><i class="fa-solid fa-user-shield"></i></div>
+                        <div class="detail-text">
+                            <span class="detail-label">Role</span>
+                            <span class="detail-value">Admin</span>
+                        </div>
+                    </div>
+
+                    <div class="detail-item">
+                        <div class="detail-icon"><i class="fa-solid fa-network-wired"></i></div>
+                        <div class="detail-text">
+                            <span class="detail-label">IP Address</span>
+                            <span class="detail-value" id="user-ip">Loading...</span>
+                        </div>
+                    </div>
+
+                    <div class="detail-item">
+                        <div class="detail-icon"><i class="fa-regular fa-clock"></i></div>
+                        <div class="detail-text">
+                            <span class="detail-label">Last Login</span>
+                            <span class="detail-value" id="last-login">Just now</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="profile-actions">
+                <button class="action-btn home-btn" onclick="window.history.back()">
+                    <i class="fa-solid fa-house"></i> Go Back
+                </button>
+                <button class="action-btn" style="background:#2563eb;color:#fff;" onclick="showChangePasswordModal()">
+                    <i class="fa-solid fa-key"></i> Change Password
+                </button>
+                <button class="action-btn logout-btn" onclick="showLogoutPopup()">
+                    <i class="fa-solid fa-right-from-bracket"></i> Logout
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- Change Password Modal -->
+    <div class="logout-overlay" id="change-password-overlay">
+        <div class="logout-popup">
+            <div class="popup-icon"><i class="fa-solid fa-key"></i></div>
+            <h3>Change Password</h3>
+            <div id="cp-step-1">
+                <p>We'll send a verification code to your email.</p>
+                <div class="popup-actions">
+                    <button class="popup-btn btn-no" onclick="hideChangePasswordModal()">Cancel</button>
+                    <button class="popup-btn btn-yes" onclick="requestPasswordOtp()">Send OTP</button>
+                </div>
+            </div>
+            <div id="cp-step-2" style="display:none;">
+                <input type="text" id="cp-otp" placeholder="Enter OTP" maxlength="6" style="width:100%;padding:8px;margin:8px 0;border-radius:6px;border:1px solid #ccc;font-size:1rem;">
+                <input type="password" id="cp-new-password" placeholder="New Password" style="width:100%;padding:8px;margin:8px 0;border-radius:6px;border:1px solid #ccc;font-size:1rem;">
+                <input type="password" id="cp-confirm-password" placeholder="Confirm New Password" style="width:100%;padding:8px;margin:8px 0;border-radius:6px;border:1px solid #ccc;font-size:1rem;">
+                <p id="cp-error" style="color:red;font-size:0.85rem;min-height:18px;"></p>
+                <div class="popup-actions">
+                    <button class="popup-btn btn-no" onclick="hideChangePasswordModal()">Cancel</button>
+                    <button class="popup-btn btn-yes" onclick="submitPasswordChange()">Update Password</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Logout Confirmation Popup -->
+    <div class="logout-overlay" id="logout-overlay">
+        <div class="logout-popup">
+            <div class="popup-icon">
+                <i class="fa-solid fa-circle-exclamation"></i>
+            </div>
+            <h3>Logout Confirmation</h3>
+            <p>Are you sure you want to log out of your session?</p>
+            <div class="popup-actions">
+                <button class="popup-btn btn-no" onclick="hideLogoutPopup()">No, Cancel</button>
+                <button class="popup-btn btn-yes" onclick="performLogout()">Yes, Logout</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- External JS -->
+    <script src="profile.js"></script>
+    <script>
+        function goToAnalyse() {
+            const csv = sessionStorage.getItem('csv_raw');
+            if (!csv) { alert('Please upload a CSV file from the Dashboard first.'); return; }
+            window.location.href = 'analyse.html';
+        }
+    </script>
+    <script src="dark_mode.js"></script>
+</body>
+</html>
+

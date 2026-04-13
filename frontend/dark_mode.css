@@ -1,0 +1,5 @@
+/* dark_mode.css
+   Dark is now the default theme for all pages.
+   This file is kept for compatibility and is intentionally empty.
+   All dark theme styles are defined in admin_dashboard.css
+   and imported by each page's stylesheet. */
